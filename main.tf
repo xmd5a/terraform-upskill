@@ -8,18 +8,32 @@ module "network" {
     }
   }
   subnets = [{
-    name              = "public"
+    name              = "public_first"
     cidr_block        = "10.0.1.0/24"
     availability_zone = "us-east-1a"
     tags = {
-      Name = "pszarmach-public-subnet-1-us-east-1a"
+      Name = "pszarmach-public-subnet-east-1a"
     }
     }, {
-    name              = "private"
+    name              = "public_second"
     cidr_block        = "10.0.2.0/24"
+    availability_zone = "us-east-1b"
+    tags = {
+      Name = "pszarmach-public-subnet-east-1b"
+    }
+    }, {
+    name              = "private_first"
+    cidr_block        = "10.0.3.0/24"
     availability_zone = "us-east-1a"
     tags = {
-      Name = "pszarmach-private-subnet-1-us-east-1a"
+      Name = "pszarmach-private-subnet-east-1a"
+    }
+    }, {
+    name              = "private_second"
+    cidr_block        = "10.0.4.0/24"
+    availability_zone = "us-east-1b"
+    tags = {
+      Name = "pszarmach-private-subnet-east-1b"
     }
   }]
 }
@@ -39,7 +53,7 @@ module "igw" {
       gateway_id = module.igw.igw_id
     }]
     tags = {
-      Name = "pszarmach-route-table-public-internet"
+      Name = "pszarmach-rt-access-2-public-internet"
     }
   }
 }
@@ -48,7 +62,7 @@ module "nat" {
   source = "./modules/nat_gateway"
 
   vpc_id    = module.network.vpc_id
-  subnet_id = module.network.subnets.public.id
+  subnet_id = module.network.subnets.public_first.id
   tag_name  = "pszarmach"
   rt = {
     routes = [{
@@ -135,10 +149,16 @@ module "associate_rt_subnet" {
   source = "./modules/associate_rt_subnet"
 
   associate = [{
-    subnet_id      = module.network.subnets.public.id
+    subnet_id      = module.network.subnets.public_first.id
     route_table_id = module.igw.rt_id
     }, {
-    subnet_id      = module.network.subnets.private.id
+    subnet_id      = module.network.subnets.public_second.id
+    route_table_id = module.igw.rt_id
+    }, {
+    subnet_id      = module.network.subnets.private_first.id
+    route_table_id = module.nat.rt_id
+    }, {
+    subnet_id      = module.network.subnets.private_second.id
     route_table_id = module.nat.rt_id
   }]
 }
@@ -160,14 +180,14 @@ module "rds" {
   }
   subnets = [{
     name              = "rds_1st"
-    cidr_block        = "10.0.3.0/24"
+    cidr_block        = "10.0.5.0/24"
     availability_zone = "us-east-1a"
     tags = {
       Name = "pszarmach-rds-subnet-us-east-1a"
     }
     }, {
     name              = "rds_2nd"
-    cidr_block        = "10.0.4.0/24"
+    cidr_block        = "10.0.6.0/24"
     availability_zone = "us-east-1b"
     tags = {
       Name = "pszarmach-rds-subnet-us-east-1b"
@@ -196,13 +216,13 @@ module "ec2_instance_public" {
       availability_zone = "us-east-1a"
       key_name          = "pszarmach"
       user_data = base64encode(templatefile("${path.module}/frontend_sh.tpl", {
-        api_url = "http://10.0.2.10"
+        api_url = "http://10.0.3.10"
       }))
       tags = {
         Name  = "pszarmach-ec2-1-public-us-east-1a"
         Owner = "pszarmach"
       }
-      subnet          = module.network.subnets.public.id
+      subnet          = module.network.subnets.public_first.id
       security_groups = [module.sg_allow_web_ssh.sg_id]
   }]
 
@@ -216,7 +236,7 @@ module "ec2_instance_private" {
     {
       is_public            = false
       iam_instance_profile = module.s3.iam_profile_id
-      private_ip           = "10.0.2.10"
+      private_ip           = "10.0.3.10"
       ami                  = "ami-0557a15b87f6559cf"
       instance_type        = "t2.micro"
       availability_zone    = "us-east-1a"
@@ -228,13 +248,26 @@ module "ec2_instance_private" {
         Name  = "pszarmach-ec2-1-private-us-east-1a"
         Owner = "pszarmach"
       }
-      subnet          = module.network.subnets.private.id
+      subnet          = module.network.subnets.private_first.id
       security_groups = [module.allow_web_ssh_from_public_subnet.sg_id]
   }]
 
   depends_on = [module.igw.igw_id, module.nat.nat_gw_id, module.rds.db_hostname, module.s3.iam_profile_id]
 }
 
+module "frontend_load_balancer" {
+  source = "./modules/load-balancer"
+
+  vpc_id             = module.network.vpc_id
+  subnets            = [module.network.subnets.public_first.id, module.network.subnets.public_second.id]
+  launch_template_sg = [module.sg_allow_web_ssh.sg_id]
+}
+
+# resource "aws_launch_template" "pszarmach-ec2-public-fe-template" {
+#   name = "pszarmach-ec2-public-fe-template"
+
+
+# }
 
 output "vpc_id" {
   value = module.network.vpc_id
@@ -282,4 +315,8 @@ output "s3_bucket" {
 
 output "iam_profile_id" {
   value = module.s3.iam_profile_id
+}
+
+output "dns_frontend_name" {
+  value = module.frontend_load_balancer.dns_name
 }
