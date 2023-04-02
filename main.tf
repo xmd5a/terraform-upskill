@@ -123,7 +123,6 @@ module "allow_web_ssh_from_public_subnet" {
   description = "Allow web:80 and ssh:22"
   vpc_id      = module.network.vpc_id
 
-  #ingress_rules = var.ingress_rules
   ingress_rules = [{
     description     = "inbound"
     from_port       = 0
@@ -204,53 +203,64 @@ module "s3" {
   }
 }
 
-module "ec2_instance_public" {
-  source = "./modules/ec2_instance"
+module "backend_load_balancer" {
+  source = "./modules/load-balancer"
 
-  instances = [
-    {
-      is_public         = true
-      private_ip        = "10.0.1.10"
-      ami               = "ami-0557a15b87f6559cf"
-      instance_type     = "t2.micro"
-      availability_zone = "us-east-1a"
-      key_name          = "pszarmach"
-      user_data = base64encode(templatefile("${path.module}/frontend_sh.tpl", {
-        api_url = "http://10.0.3.10"
-      }))
-      tags = {
-        Name  = "pszarmach-ec2-1-public-us-east-1a"
-        Owner = "pszarmach"
+  vpc_id = module.network.vpc_id
+
+  asg = {
+    name    = "pszarmach-be-asg"
+    subnets = [module.network.subnets.private_first.id, module.network.subnets.private_second.id]
+  }
+
+  tg = {
+    name = "pszarmach-tg-be"
+  }
+
+  lb = {
+    name     = "pszarmach-lb-be"
+    subnets  = [module.network.subnets.private_first.id, module.network.subnets.private_second.id]
+    internal = true
+  }
+
+  lt = {
+    name          = "pszarmach-ec2-private-be"
+    description   = "private BE launch template"
+    template_file = "backend_sh.tpl"
+    user_data_vars = {
+      db_hostname = module.rds.db_hostname
+    }
+    sg                      = [module.allow_web_ssh_from_public_subnet.sg_id]
+    public                  = false
+    iamiam_instance_profile = module.s3.iam_profile_id
+  }
+
+  lb_listener = {
+    name = "pszarmach-lb-listener-be"
+  }
+
+  sg = {
+    name        = "pszarmach-sg-lb-be"
+    description = "security group for backend load balancer"
+    ingress_rules = [
+      {
+        description     = "HTTP"
+        from_port       = 80
+        to_port         = 80
+        protocol        = "tcp"
+        security_groups = [module.sg_allow_web_ssh.sg_id]
+      },
+    ],
+    egress_rules = [
+      {
+        description     = "HTTP"
+        from_port       = 80
+        to_port         = 80
+        protocol        = "tcp"
+        security_groups = [module.allow_web_ssh_from_public_subnet.sg_id]
       }
-      subnet          = module.network.subnets.public_first.id
-      security_groups = [module.sg_allow_web_ssh.sg_id]
-  }]
-
-  depends_on = [module.igw.igw_id]
-}
-
-module "ec2_instance_private" {
-  source = "./modules/ec2_instance"
-
-  instances = [
-    {
-      is_public            = false
-      iam_instance_profile = module.s3.iam_profile_id
-      private_ip           = "10.0.3.10"
-      ami                  = "ami-0557a15b87f6559cf"
-      instance_type        = "t2.micro"
-      availability_zone    = "us-east-1a"
-      key_name             = "pszarmach"
-      user_data = templatefile("${path.module}/backend_sh.tpl", {
-        db_hostname = module.rds.db_hostname
-      })
-      tags = {
-        Name  = "pszarmach-ec2-1-private-us-east-1a"
-        Owner = "pszarmach"
-      }
-      subnet          = module.network.subnets.private_first.id
-      security_groups = [module.allow_web_ssh_from_public_subnet.sg_id]
-  }]
+    ]
+  }
 
   depends_on = [module.igw.igw_id, module.nat.nat_gw_id, module.rds.db_hostname, module.s3.iam_profile_id]
 }
@@ -258,16 +268,63 @@ module "ec2_instance_private" {
 module "frontend_load_balancer" {
   source = "./modules/load-balancer"
 
-  vpc_id             = module.network.vpc_id
-  subnets            = [module.network.subnets.public_first.id, module.network.subnets.public_second.id]
-  launch_template_sg = [module.sg_allow_web_ssh.sg_id]
+  vpc_id = module.network.vpc_id
+
+  asg = {
+    name    = "pszarmach-fe-asg"
+    subnets = [module.network.subnets.public_first.id, module.network.subnets.public_second.id]
+  }
+
+  tg = {
+    name = "pszarmach-tg-fe"
+  }
+
+  lb = {
+    name     = "pszarmach-lb-fe"
+    subnets  = [module.network.subnets.public_first.id, module.network.subnets.public_second.id]
+    internal = false
+  }
+
+  lt = {
+    name          = "pszarmach-ec2-public-fe"
+    description   = "public FE launch template"
+    template_file = "frontend_sh.tpl"
+    user_data_vars = {
+      api_url = "http://${module.backend_load_balancer.dns_name}"
+    }
+    sg     = [module.sg_allow_web_ssh.sg_id]
+    public = true
+  }
+
+  lb_listener = {
+    name = "pszarmach-lb-listener-fe"
+  }
+
+  sg = {
+    name        = "pszarmach-sg-lb-fe"
+    description = "security group for frontend load balancer"
+    ingress_rules = [
+      {
+        description = "all"
+        from_port   = 0
+        to_port     = 0
+        protocol    = "-1"
+        cidr_blocks = ["0.0.0.0/0"]
+      },
+    ],
+    egress_rules = [
+      {
+        description = "all"
+        from_port   = 0
+        to_port     = 0
+        protocol    = "-1"
+        cidr_blocks = ["0.0.0.0/0"]
+      }
+    ]
+  }
+
+  depends_on = [module.backend_load_balancer.dns_name]
 }
-
-# resource "aws_launch_template" "pszarmach-ec2-public-fe-template" {
-#   name = "pszarmach-ec2-public-fe-template"
-
-
-# }
 
 output "vpc_id" {
   value = module.network.vpc_id
@@ -301,9 +358,9 @@ output "sg_allow_web_ssh_id" {
   value = module.sg_allow_web_ssh.sg_id
 }
 
-output "ec2_public_ip" {
-  value = module.ec2_instance_public.ec2_ip
-}
+# output "ec2_public_ip" {
+#   value = module.ec2_instance_public.ec2_ip
+# }
 
 output "rds_hostname" {
   value = module.rds.db_hostname
@@ -319,4 +376,8 @@ output "iam_profile_id" {
 
 output "dns_frontend_name" {
   value = module.frontend_load_balancer.dns_name
+}
+
+output "dns_backend_name" {
+  value = module.backend_load_balancer.dns_name
 }
