@@ -1,18 +1,3 @@
-module "lb_sg" {
-  source = "../security_group"
-
-  name        = var.sg.name
-  description = var.sg.description
-  vpc_id      = var.vpc_id
-
-  ingress_rules = var.sg.ingress_rules
-  egress_rules  = var.sg.egress_rules
-
-  tags = {
-    Name = var.sg.name
-  }
-}
-
 resource "aws_lb_target_group" "main" {
   name        = var.tg.name
   vpc_id      = var.vpc_id
@@ -25,11 +10,28 @@ resource "aws_lb_target_group" "main" {
   }
 }
 
+resource "aws_autoscaling_policy" "main" {
+  name                   = var.ap.name
+  # scaling_adjustment     = 2
+  # cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.main.name
+  policy_type            = "TargetTrackingScaling"
+  # policy_type            = "SimpleScaling"
+  
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageNetworkIn"
+    }
+
+    target_value = 10.0
+  }
+}
+
 resource "aws_lb" "main" {
   name               = var.lb.name
   internal           = var.lb.internal
   load_balancer_type = "application"
-  security_groups    = [module.lb_sg.sg_id]
+  security_groups    = [var.lb_sg]
   subnets            = var.lb.subnets
 
   tags = {
@@ -73,9 +75,9 @@ resource "aws_launch_template" "main" {
     }
   }
 
-  # iam_instance_profile {
-  #   name = var.lt.iam_instance_profile
-  # }
+  iam_instance_profile {
+    name = try(var.lt.iam_instance_profile, null)
+  }
 }
 
 resource "aws_autoscaling_group" "main" {

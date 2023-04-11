@@ -2,6 +2,10 @@ variable "vpc_id" {
   type = string
 }
 
+variable "lb_sg" {
+  type = string
+}
+
 variable "asg" {
   type = object({
     name    = string
@@ -10,6 +14,12 @@ variable "asg" {
 }
 
 variable "tg" {
+  type = object({
+    name = string
+  })
+}
+
+variable "ap" {
   type = object({
     name = string
   })
@@ -38,28 +48,5 @@ variable "lt" {
 variable "lb_listener" {
   type = object({
     name = string
-  })
-}
-
-variable "sg" {
-  type = object({
-    name        = string
-    description = string
-    ingress_rules = list(object({
-      description     = string
-      from_port       = number
-      to_port         = number
-      protocol        = string
-      cidr_blocks     = optional(list(string))
-      security_groups = optional(list(string))
-    }))
-    egress_rules = list(object({
-      description     = string
-      from_port       = number
-      to_port         = number
-      protocol        = string
-      cidr_blocks     = optional(list(string))
-      security_groups = optional(list(string))
-    }))
   })
 }
