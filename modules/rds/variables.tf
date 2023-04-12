@@ -2,13 +2,16 @@ variable "vpc_id" {
   type = string
 }
 
+variable "sg_id" {
+  type = string
+}
+
 variable "db" {
   type = object({
-    identifier     = string
-    name           = string
-    user           = string
-    password       = string
-    security_group = string
+    identifier = string
+    name       = string
+    user       = string
+    password   = string
   })
 }
 
