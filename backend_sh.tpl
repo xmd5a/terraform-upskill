@@ -1,10 +1,6 @@
 #!/bin/bash
 
 #variables
-bucket_name=pszarmach-s3
-db_name=app
-db_username=admin
-db_password=FLizVBSeNazaPcgJaMvm
 s3_region=us-east-1
 
 apt-get update
@@ -40,11 +36,11 @@ git clone https://github.com/xmd5a/api-images.git
 cd api-images
 
 echo "set env variable"
-echo "BUCKET_NAME=$bucket_name
+echo "BUCKET_NAME=${s3_bucket}
 DB_HOSTNAME=${db_hostname}
-DB_NAME=$db_name
-DB_USERNAME=$db_username
-DB_PASSWORD=$db_password
+DB_NAME=${db_name}
+DB_USERNAME=${db_user}
+DB_PASSWORD=${db_password}
 S3_REGION=$s3_region" > .env
 
 echo "build app"

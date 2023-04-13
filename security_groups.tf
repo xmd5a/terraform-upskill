@@ -1,67 +1,67 @@
-module "pszarmach_public_ec2_sg" {
+module "public_ec2_sg" {
   source = "./modules/security_group"
 
-  name        = "pszarmach_public_ec2_sg"
-  description = "pszarmach_public_ec2_sg"
+  name        = var.security_groups.public_ec2.resource_name
+  description = var.security_groups.public_ec2.resource_name
   vpc_id      = module.network.vpc_id
 
   tags = {
-    Name = "pszarmach_public_ec2_sg"
+    Name = var.security_groups.public_ec2.resource_name
   }
 }
 
-module "pszarmach_private_ec2_sg" {
+module "private_ec2_sg" {
   source = "./modules/security_group"
 
-  name        = "pszarmach_private_ec2_sg"
-  description = "pszarmach_private_ec2_sg"
+  name        = var.security_groups.private_ec2.resource_name
+  description = var.security_groups.private_ec2.resource_name
   vpc_id      = module.network.vpc_id
 
   tags = {
-    Name = "pszarmach_private_ec2_sg"
+    Name = var.security_groups.private_ec2.resource_name
   }
 }
 
-module "pszarmach_rds_sg" {
+module "rds_sg" {
   source = "./modules/security_group"
 
-  name        = "pszarmach_rds_sg"
-  description = "pszarmach_rds_sg"
+  name        = var.security_groups.rds.resource_name
+  description = var.security_groups.rds.resource_name
   vpc_id      = module.network.vpc_id
 
   tags = {
-    Name = "pszarmach_rds_sg"
+    Name = var.security_groups.rds.resource_name
   }
 }
 
-module "pszarmach_sg_lb_fe" {
+module "sg_lb_fe" {
   source = "./modules/security_group"
 
-  name        = "pszarmach_sg_lb_fe"
-  description = "pszarmach_sg_lb_fe"
+  name        = var.security_groups.lb_fe.resource_name
+  description = var.security_groups.lb_fe.resource_name
   vpc_id      = module.network.vpc_id
 
   tags = {
-    Name = "pszarmach_sg_lb_fe"
+    Name = var.security_groups.lb_fe.resource_name
   }
 }
 
-module "pszarmach_sg_lb_be" {
+module "sg_lb_be" {
   source = "./modules/security_group"
 
-  name        = "pszarmach_sg_lb_be"
-  description = "pszarmach_sg_lb_be"
+  name        = var.security_groups.lb_be.resource_name
+  description = var.security_groups.lb_be.resource_name
   vpc_id      = module.network.vpc_id
 
   tags = {
-    Name = "pszarmach_sg_lb_be"
+    Name = var.security_groups.lb_be.resource_name
   }
 }
 
-module "pszarmach_public_ec2_sg_rules" {
+module "public_ec2_sg_rules" {
   source = "./modules/security_group_rule"
 
-  security_group_id = module.pszarmach_public_ec2_sg.sg_id
+  security_group_id = module.public_ec2_sg.sg_id
   rules = [
     {
       type        = "ingress"
@@ -90,10 +90,10 @@ module "pszarmach_public_ec2_sg_rules" {
   ]
 }
 
-module "pszarmach_private_ec2_sg_rules" {
+module "private_ec2_sg_rules" {
   source = "./modules/security_group_rule"
 
-  security_group_id = module.pszarmach_private_ec2_sg.sg_id
+  security_group_id = module.private_ec2_sg.sg_id
   rules = [
     {
       type                     = "ingress"
@@ -101,7 +101,7 @@ module "pszarmach_private_ec2_sg_rules" {
       from_port                = 0
       to_port                  = 0
       protocol                 = "-1"
-      source_security_group_id = module.pszarmach_public_ec2_sg.sg_id
+      source_security_group_id = module.public_ec2_sg.sg_id
     },
     {
       type                     = "ingress"
@@ -109,7 +109,7 @@ module "pszarmach_private_ec2_sg_rules" {
       from_port                = 0
       to_port                  = 0
       protocol                 = "-1"
-      source_security_group_id = module.pszarmach_sg_lb_be.sg_id
+      source_security_group_id = module.sg_lb_be.sg_id
     },
     {
       type        = "egress"
@@ -125,15 +125,15 @@ module "pszarmach_private_ec2_sg_rules" {
       from_port                = 3306
       to_port                  = 3306
       protocol                 = "tcp"
-      source_security_group_id = module.pszarmach_rds_sg.sg_id
+      source_security_group_id = module.rds_sg.sg_id
     }
   ]
 }
 
-module "pszarmach_rds_sg_rules" {
+module "rds_sg_rules" {
   source = "./modules/security_group_rule"
 
-  security_group_id = module.pszarmach_rds_sg.sg_id
+  security_group_id = module.rds_sg.sg_id
   rules = [
     {
       type                     = "ingress"
@@ -141,7 +141,7 @@ module "pszarmach_rds_sg_rules" {
       from_port                = 3306
       to_port                  = 3306
       protocol                 = "tcp"
-      source_security_group_id = module.pszarmach_private_ec2_sg.sg_id
+      source_security_group_id = module.private_ec2_sg.sg_id
     },
     {
       type                     = "egress"
@@ -149,15 +149,15 @@ module "pszarmach_rds_sg_rules" {
       from_port                = 3306
       to_port                  = 3306
       protocol                 = "tcp"
-      source_security_group_id = module.pszarmach_private_ec2_sg.sg_id
+      source_security_group_id = module.private_ec2_sg.sg_id
     }
   ]
 }
 
-module "pszarmach_lb_fe_sg_rules" {
+module "lb_fe_sg_rules" {
   source = "./modules/security_group_rule"
 
-  security_group_id = module.pszarmach_sg_lb_fe.sg_id
+  security_group_id = module.sg_lb_fe.sg_id
   rules = [
     {
       type        = "ingress"
@@ -178,10 +178,10 @@ module "pszarmach_lb_fe_sg_rules" {
   ]
 }
 
-module "pszarmach_lb_be_sg_rules" {
+module "lb_be_sg_rules" {
   source = "./modules/security_group_rule"
 
-  security_group_id = module.pszarmach_sg_lb_be.sg_id
+  security_group_id = module.sg_lb_be.sg_id
   rules = [
     {
       type        = "ingress"

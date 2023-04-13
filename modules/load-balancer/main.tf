@@ -11,13 +11,13 @@ resource "aws_lb_target_group" "main" {
 }
 
 resource "aws_autoscaling_policy" "main" {
-  name                   = var.ap.name
+  name = var.ap.name
   # scaling_adjustment     = 2
   # cooldown               = 300
   autoscaling_group_name = aws_autoscaling_group.main.name
   policy_type            = "TargetTrackingScaling"
   # policy_type            = "SimpleScaling"
-  
+
   target_tracking_configuration {
     predefined_metric_specification {
       predefined_metric_type = "ASGAverageNetworkIn"

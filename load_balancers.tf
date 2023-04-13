@@ -3,41 +3,45 @@ module "backend_load_balancer" {
 
   vpc_id = module.network.vpc_id
 
-  lb_sg = module.pszarmach_sg_lb_be.sg_id
+  lb_sg = module.sg_lb_be.sg_id
 
   asg = {
-    name    = "pszarmach-be-asg"
+    name    = "${var.load_balancers.backend.resource_name}-asg"
     subnets = [module.network.subnets.private_first.id, module.network.subnets.private_second.id]
   }
 
   tg = {
-    name = "pszarmach-tg-be"
+    name = "${var.load_balancers.backend.resource_name}-tg"
   }
 
   ap = {
-    name = "pszarmach-ap-be"
+    name = "${var.load_balancers.backend.resource_name}-ap"
   }
 
   lb = {
-    name     = "pszarmach-lb-be"
+    name     = "${var.load_balancers.backend.resource_name}-lb"
     subnets  = [module.network.subnets.private_first.id, module.network.subnets.private_second.id]
     internal = true
   }
 
   lt = {
-    name          = "pszarmach-ec2-private-be"
-    description   = "private BE launch template"
+    name          = "${var.load_balancers.backend.resource_name}-ec2-private"
+    description   = "${var.load_balancers.backend.lt.description}"
     template_file = "backend_sh.tpl"
     user_data_vars = {
       db_hostname = module.rds.db_hostname
+      db_name     = var.database.name
+      db_user     = var.database.user
+      db_password = var.database.password
+      s3_bucket   = var.s3_resource_name
     }
-    sg                      = [module.pszarmach_private_ec2_sg.sg_id]
-    public                  = false
+    sg                   = [module.private_ec2_sg.sg_id]
+    public               = false
     iam_instance_profile = module.s3.iam_profile_id
   }
 
   lb_listener = {
-    name = "pszarmach-lb-listener-be"
+    name = "${var.load_balancers.backend.resource_name}-lb-listener"
   }
 
   depends_on = [module.igw.igw_id, module.nat.nat_gw_id, module.rds.db_hostname, module.s3.iam_profile_id]
@@ -48,40 +52,40 @@ module "frontend_load_balancer" {
 
   vpc_id = module.network.vpc_id
 
-  lb_sg = module.pszarmach_sg_lb_fe.sg_id
+  lb_sg = module.sg_lb_fe.sg_id
 
   asg = {
-    name    = "pszarmach-fe-asg"
+    name    = "${var.load_balancers.frontend.resource_name}-asg"
     subnets = [module.network.subnets.public_first.id, module.network.subnets.public_second.id]
   }
 
   tg = {
-    name = "pszarmach-tg-fe"
+    name = "${var.load_balancers.frontend.resource_name}-tg"
   }
 
   ap = {
-    name = "pszarmach-ap-fe"
+    name = "${var.load_balancers.frontend.resource_name}-ap"
   }
 
   lb = {
-    name     = "pszarmach-lb-fe"
+    name     = "${var.load_balancers.frontend.resource_name}-lb"
     subnets  = [module.network.subnets.public_first.id, module.network.subnets.public_second.id]
     internal = false
   }
 
   lt = {
-    name          = "pszarmach-ec2-public-fe"
-    description   = "public FE launch template"
+    name          = "${var.load_balancers.frontend.resource_name}-ec2-public"
+    description   = "${var.load_balancers.frontend.lt.description}"
     template_file = "frontend_sh.tpl"
     user_data_vars = {
       api_url = "http://${module.backend_load_balancer.dns_name}"
     }
-    sg     = [module.pszarmach_public_ec2_sg.sg_id]
+    sg     = [module.public_ec2_sg.sg_id]
     public = true
   }
 
   lb_listener = {
-    name = "pszarmach-lb-listener-fe"
+    name = "${var.load_balancers.frontend.resource_name}-lb-listener"
   }
 
   depends_on = [module.backend_load_balancer.dns_name]

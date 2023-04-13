@@ -2,40 +2,12 @@ module "network" {
   source = "./modules/network"
 
   vpc = {
-    cidr_block = "10.0.0.0/16"
+    cidr_block = var.network.vpc.cidr_block
     tags = {
-      Name = "pszarmach-vpc"
+      Name = var.network.vpc.resource_name
     }
   }
-  subnets = [{
-    name              = "public_first"
-    cidr_block        = "10.0.1.0/24"
-    availability_zone = "us-east-1a"
-    tags = {
-      Name = "pszarmach-public-subnet-east-1a"
-    }
-    }, {
-    name              = "public_second"
-    cidr_block        = "10.0.2.0/24"
-    availability_zone = "us-east-1b"
-    tags = {
-      Name = "pszarmach-public-subnet-east-1b"
-    }
-    }, {
-    name              = "private_first"
-    cidr_block        = "10.0.3.0/24"
-    availability_zone = "us-east-1a"
-    tags = {
-      Name = "pszarmach-private-subnet-east-1a"
-    }
-    }, {
-    name              = "private_second"
-    cidr_block        = "10.0.4.0/24"
-    availability_zone = "us-east-1b"
-    tags = {
-      Name = "pszarmach-private-subnet-east-1b"
-    }
-  }]
+  subnets = var.network.subnets
 }
 
 module "igw" {
@@ -44,7 +16,7 @@ module "igw" {
   vpc_id = module.network.vpc_id
   igw = {
     tags = {
-      Name = "pszarmach-igw"
+      Name = var.network.igw.resource_name
     }
   }
   rt = {
@@ -53,7 +25,7 @@ module "igw" {
       gateway_id = module.igw.igw_id
     }]
     tags = {
-      Name = "pszarmach-rt-access-2-public-internet"
+      Name = "${var.network.igw.resource_name}-access-2-public-internet"
     }
   }
 }
@@ -63,14 +35,15 @@ module "nat" {
 
   vpc_id    = module.network.vpc_id
   subnet_id = module.network.subnets.public_first.id
-  tag_name  = "pszarmach"
+  tag_name  = var.network.nat.resource_name
+
   rt = {
     routes = [{
       cidr_block = "0.0.0.0/0"
       gateway_id = module.nat.nat_gw_id
     }]
     tags = {
-      Name = "pszarmach-route-table-private-subnet"
+      Name = "${var.network.nat.resource_name}-route-table-private-subnet"
     }
   }
 

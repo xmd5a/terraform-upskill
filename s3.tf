@@ -1,8 +1,8 @@
 module "s3" {
   source = "./modules/s3"
 
-  name = "pszarmach-s3"
+  name = var.s3_resource_name
   tags = {
-    Name = "pszarmach"
+    Name = var.s3_resource_name
   }
 }
