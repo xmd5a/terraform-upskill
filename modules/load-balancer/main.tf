@@ -61,7 +61,7 @@ resource "aws_launch_template" "main" {
   instance_type = "t2.micro"
 
   key_name  = "pszarmach"
-  user_data = base64encode(templatefile("${path.module}/../../${var.lt.template_file}", var.lt.user_data_vars))
+  user_data = base64encode(templatefile("${path.module}/../../scripts/${var.lt.template_file}", var.lt.user_data_vars))
 
   network_interfaces {
     associate_public_ip_address = var.lt.public
