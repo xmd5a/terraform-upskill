@@ -189,7 +189,7 @@ module "lb_be_sg_rules" {
       from_port   = 0
       to_port     = 0
       protocol    = "-1"
-      cidr_blocks = ["0.0.0.0/0"]
+      source_security_group_id = module.public_ec2_sg.sg_id
     },
     {
       type        = "egress"
@@ -198,6 +198,7 @@ module "lb_be_sg_rules" {
       to_port     = 0
       protocol    = "-1"
       cidr_blocks = ["0.0.0.0/0"]
+      # source_security_group_id = module.sg_lb_fe.sg_id
     }
   ]
 }
